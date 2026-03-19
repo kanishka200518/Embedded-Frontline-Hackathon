@@ -1,0 +1,336 @@
+# Embedded-Frontline-Hackathon
+Code:
+#include "BluetoothSerial.h"
+
+// Check if Bluetooth is properly enabled in the IDE
+#if !defined(CONFIG_BT_ENABLED) || !defined(CONFIG_BLUEDROID_ENABLED)
+#error Bluetooth is not enabled! Please run `make menuconfig` to and enable it
+#endif
+
+BluetoothSerial SerialBT;
+String inputString = "";
+
+const int batteryPin = 36;
+
+const int INAF = 26;
+const int INAR = 25;
+const int ENA = 33;
+
+const int INBF = 27;
+const int INBR = 14;
+const int ENB = 12;
+
+
+unsigned long moveStartTime = 0;
+long commandDuration = 200;
+
+unsigned long lastBatteryCheck = 0;
+const long batteryInterval = 5000;
+
+
+unsigned long lastVirusCheck = 0;
+const long virusInterval = 3000;
+
+
+bool isMoving = false;
+
+
+void moveReverse(int speed) {
+  digitalWrite(INAF, LOW);
+  digitalWrite(INAR, HIGH);
+  digitalWrite(INBF, LOW);
+  digitalWrite(INBR, HIGH);
+  analogWrite(ENA, speed);
+  analogWrite(ENB, speed);
+}
+
+void moveForward(int speed) {
+  digitalWrite(INAF, HIGH);
+  digitalWrite(INAR, LOW);
+  digitalWrite(INBF, HIGH);
+  digitalWrite(INBR, LOW);
+  analogWrite(ENA, speed);
+  analogWrite(ENB, speed);
+}
+
+void turnLeftTank(int speed) {
+  digitalWrite(INAF, LOW);
+  digitalWrite(INAR, HIGH);
+  digitalWrite(INBF, HIGH);
+  digitalWrite(INBR, LOW);
+  analogWrite(ENA, speed);
+  analogWrite(ENB, speed);
+}
+
+void turnRightTank(int speed) {
+  digitalWrite(INAF, HIGH);
+  digitalWrite(INAR, LOW);
+  digitalWrite(INBF, LOW);
+  digitalWrite(INBR, HIGH);
+  analogWrite(ENA, speed);
+  analogWrite(ENB, speed);
+}
+
+void turnLeft(int speed) {
+  digitalWrite(INAF, LOW);
+  digitalWrite(INAR, LOW);
+  digitalWrite(INBF, HIGH);
+  digitalWrite(INBR, LOW);
+  analogWrite(ENA, speed);
+  analogWrite(ENB, speed);
+}
+
+void turnRight(int speed) {
+  digitalWrite(INAF, HIGH);
+  digitalWrite(INAR, LOW);
+  digitalWrite(INBF, LOW);
+  digitalWrite(INBR, LOW);
+  analogWrite(ENA, speed);
+  analogWrite(ENB, speed);
+}
+
+void stopRobot() {
+  isMoving = false;
+  digitalWrite(INAF, LOW);
+  digitalWrite(INAR, LOW);
+  digitalWrite(INBF, LOW);
+  digitalWrite(INBR, LOW);
+  analogWrite(ENA, 0);
+  analogWrite(ENB, 0);
+}
+
+void processCommand(String cmd) {
+  cmd.trim(); // Remove extra spaces/newlines
+ 
+  // 1. Check if the command starts with "FORWARD"
+  if (cmd.startsWith("DURATION")) {
+    
+    // 2. Find the index of the space character
+    int spaceIndex = cmd.indexOf(' ');
+    
+    if (spaceIndex != -1) {
+      // 3. Extract the substring starting from the character after the space
+      String valStr = cmd.substring(spaceIndex + 1);
+      
+      // 4. Convert the string to an integer
+      int dur = valStr.toInt();
+      
+      // 5. Constrain the value to your analogWrite range (0-255)
+      dur = constrain(dur, 50, 600);
+      
+      SerialBT.print("Changing Duration: ");
+      SerialBT.println(dur);
+      
+      commandDuration = dur;
+    }
+  } else if (cmd.startsWith("FORWARD")) {
+    
+    // 2. Find the index of the space character
+    int spaceIndex = cmd.indexOf(' ');
+    
+    if (spaceIndex != -1) {
+      // 3. Extract the substring starting from the character after the space
+      String valStr = cmd.substring(spaceIndex + 1);
+      
+      // 4. Convert the string to an integer
+      int speed = valStr.toInt();
+      
+      // 5. Constrain the value to your analogWrite range (0-255)
+      speed = constrain(speed, 0, 255);
+      
+      SerialBT.print("Moving Forward at speed: ");
+      SerialBT.println(speed);
+      
+      // Execute the movement (using the pins from your schematic)
+      isMoving = true;
+      moveStartTime = millis();
+      moveForward(speed);
+    }
+  } else if (cmd.startsWith("REVERSE")) {
+    
+    // 2. Find the index of the space character
+    int spaceIndex = cmd.indexOf(' ');
+    
+    if (spaceIndex != -1) {
+      // 3. Extract the substring starting from the character after the space
+      String valStr = cmd.substring(spaceIndex + 1);
+      
+      // 4. Convert the string to an integer
+      int speed = valStr.toInt();
+      
+      // 5. Constrain the value to your analogWrite range (0-255)
+      speed = constrain(speed, 0, 255);
+      
+      SerialBT.print("Moving Reverse at speed: ");
+      SerialBT.println(speed);
+      
+      // Execute the movement (using the pins from your schematic)
+      isMoving = true;
+      moveStartTime = millis();
+      moveReverse(speed);
+    }
+  } else if (cmd.startsWith("LEFT")) {
+    
+    // 2. Find the index of the space character
+    int spaceIndex = cmd.indexOf(' ');
+    
+    if (spaceIndex != -1) {
+      // 3. Extract the substring starting from the character after the space
+      String valStr = cmd.substring(spaceIndex + 1);
+      
+      // 4. Convert the string to an integer
+      int speed = valStr.toInt();
+      
+      // 5. Constrain the value to your analogWrite range (0-255)
+      speed = constrain(speed, 0, 255);
+      
+      SerialBT.print("Turning Left at speed: ");
+      SerialBT.println(speed);
+      
+      // Execute the movement (using the pins from your schematic)
+      isMoving = true;
+      moveStartTime = millis();
+      turnLeft(speed);
+    }
+  } else if (cmd.startsWith("TANK_LEFT")) {
+    
+    // 2. Find the index of the space character
+    int spaceIndex = cmd.indexOf(' ');
+    
+    if (spaceIndex != -1) {
+      // 3. Extract the substring starting from the character after the space
+      String valStr = cmd.substring(spaceIndex + 1);
+      
+      // 4. Convert the string to an integer
+      int speed = valStr.toInt();
+      
+      // 5. Constrain the value to your analogWrite range (0-255)
+      speed = constrain(speed, 0, 255);
+      
+      SerialBT.print("Turning Tank Left at speed: ");
+      SerialBT.println(speed);
+      
+      // Execute the movement (using the pins from your schematic)
+      isMoving = true;
+      moveStartTime = millis();
+      turnLeftTank(speed);
+    }
+  } else if (cmd.startsWith("RIGHT")) {
+    
+    // 2. Find the index of the space character
+    int spaceIndex = cmd.indexOf(' ');
+    
+    if (spaceIndex != -1) {
+      // 3. Extract the substring starting from the character after the space
+      String valStr = cmd.substring(spaceIndex + 1);
+      
+      // 4. Convert the string to an integer
+      int speed = valStr.toInt();
+      
+      // 5. Constrain the value to your analogWrite range (0-255)
+      speed = constrain(speed, 0, 255);
+      
+      SerialBT.print("Turning Right at speed: ");
+      SerialBT.println(speed);
+      
+      // Execute the movement (using the pins from your schematic)
+      isMoving = true;
+      moveStartTime = millis();
+      turnRight(speed);
+    }
+  } else if (cmd.startsWith("TANK_RIGHT")) {
+    
+    // 2. Find the index of the space character
+    int spaceIndex = cmd.indexOf(' ');
+    
+    if (spaceIndex != -1) {
+      // 3. Extract the substring starting from the character after the space
+      String valStr = cmd.substring(spaceIndex + 1);
+      
+      // 4. Convert the string to an integer
+      int speed = valStr.toInt();
+      
+      // 5. Constrain the value to your analogWrite range (0-255)
+      speed = constrain(speed, 0, 255);
+      
+      SerialBT.print("Turning Tank Right at speed: ");
+      SerialBT.println(speed);
+      
+      // Execute the movement (using the pins from your schematic)
+      isMoving = true;
+      moveStartTime = millis();
+      turnRightTank(speed);
+    }
+  } else if (cmd.equalsIgnoreCase("STOP")) {
+    stopRobot();
+  } else {
+    SerialBT.print("Unknown Command: ");
+    SerialBT.println(cmd);
+  }
+}
+
+void checkBattery() {
+  // Read the raw ADC value from Sensor_VP
+  int rawValue = analogRead(batteryPin);
+  
+  // Convert to voltage: (Reading / Max Scale) * Reference Voltage * Divider Factor
+  // Assume a divider that scales 13.2V down to 3.3V (Factor of 4)
+  float voltage = (rawValue / 4095.0) * 3.3 * 4.0;
+
+  // Print to SerialBT for debugging
+  SerialBT.print("Battery Voltage: ");
+  SerialBT.println(voltage);
+
+  // Safety threshold: Stop the robot if battery is too low to prevent damage
+  if (voltage < 10.5) { 
+    stopRobot();
+    SerialBT.println("ALERT: BATTERY LOW - SHUTTING DOWN");
+    SerialBT.println("System halt: Low Voltage");
+  }
+}
+
+void setup() {
+  
+  SerialBT.begin(115200); // Higher baud rate preferred for ESP32
+  
+  //Motors
+  pinMode(INAF, OUTPUT);
+  pinMode(INAR, OUTPUT);
+  pinMode(ENA, OUTPUT);
+  pinMode(INBF, OUTPUT);
+  pinMode(INBR, OUTPUT);
+  pinMode(ENB, OUTPUT);
+
+  analogReadResolution(12); // ESP32 standard 12-bit resolution
+  
+  // This name is what you will see on your phone
+  SerialBT.begin("The Four Wheels!");
+  SerialBT.println("Bluetooth Started! Pair with 'ESP32_Robot_IITG'");
+}
+
+void loop() {
+  while (SerialBT.available()) {
+    char inChar = (char)SerialBT.read();
+    if (inChar == 'q' || inChar == 'q') {
+      SerialBT.print("Processing: ");
+      SerialBT.println(inputString);
+      processCommand(inputString);
+      inputString = ""; 
+    } else {
+      inputString += inChar;
+    }
+  }
+
+  // Auto-Stop Check
+  if (isMoving && (millis() - moveStartTime >= commandDuration)) {
+    stopRobot();
+  }
+
+  // Periodic Battery Check
+  if (millis() - lastBatteryCheck >= batteryInterval) {
+    checkBattery();
+    lastBatteryCheck = millis();
+  }
+
+ 
+}    
